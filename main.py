@@ -4,6 +4,9 @@ from dotenv import load_dotenv
 import json
 import os
 
+from readability import Document
+import requests
+
 load_dotenv()
 
 
@@ -17,7 +20,7 @@ youtube = build('youtube', 'v3', developerKey=YOUTUBE_API_KEY)
 client = ApifyClient(APIFY_API_KEY)
 
 def get_user_choice():
-    options = ["Google Search", "YouTube", "Webpage", "G2", "Others"]
+    options = ["Google Search", "YouTube", "Webpage", "Article", "G2", "Others"]
     print("What data do you want to process?")
     for i, option in enumerate(options, start=1):
         print(f"{i}. {option}")
@@ -34,7 +37,27 @@ def get_user_choice():
         print("Invalid input. Please enter a number.")
         return get_user_choice()
 
-def get_screenshot(url):
+def get_article(url):
+    response = requests.get(url)
+    doc = Document(response.text)
+    article = doc.summary()
+
+    filename = 'article.html'
+    # Determine the desktop path
+    desktop_path = os.path.join(os.path.expanduser("~"), 'Desktop')
+    file_path = os.path.join(desktop_path, filename)
+
+    print("Saving article...") 
+    # save article as a html file
+    with open(file_path, 'w') as file:
+        file.write(article)
+
+    print(f"Article has been saved to {file_path}")
+    
+    return article
+
+# Ignore this function
+def get_screenshot_2(url):
 
     # Prepare the Actor input with the provided URL
     run_input = {
@@ -60,6 +83,29 @@ def get_screenshot(url):
 
     return screenshotUrl
 
+def get_screenshot(url): # Use ApiFY screenshot actor
+    # Prepare the Actor input
+    run_input = {
+        "urls": [{ "url": url }],
+        "waitUntil": "load",
+        "delay": 5000,
+        "viewportWidth": 1280,
+        "scrollToBottom": True,
+        "delayAfterScrolling": 2500,
+        "waitUntilNetworkIdleAfterScroll": True,
+        "waitUntilNetworkIdleAfterScrollTimeout": 30000,
+        "proxy": { "useApifyProxy": True },
+        "selectorsToHide": "",
+    }
+
+    # Run the Actor and wait for it to finish
+    run = client.actor("rGCyoaKTKhyMiiTvS").call(run_input=run_input)
+
+    # Fetch and print Actor results from the run's dataset (if there are any)
+    for item in client.dataset(run["defaultDatasetId"]).iterate_items():
+        screenshotUrl = item.get('screenshotUrl')
+
+    return screenshotUrl
 
 def scrape_googlesearch(searchTerm):
 
@@ -97,9 +143,11 @@ def scrape_googlesearch(searchTerm):
 
     results = json.dumps(results, indent=2)
 
+    filename = "google_search_results_" + searchTerm.replace(" ", "+") + ".txt"
+
     # Determine the desktop path
     desktop_path = os.path.join(os.path.expanduser("~"), 'Desktop')
-    file_path = os.path.join(desktop_path, 'google_search_results.txt')
+    file_path = os.path.join(desktop_path, filename)
     
     # Write the results to a .txt file on the desktop
     with open(file_path, 'w') as file:
@@ -109,6 +157,7 @@ def scrape_googlesearch(searchTerm):
 
     return results, url
 
+# Ignore this function
 '''
 def scrape_youtube(searchTerm):
 
@@ -164,9 +213,12 @@ def scrape_youtube_2(search_term, max_results=20):
     
     videos = json.dumps(videos, indent=2)
 
+    formatted_search_term = search_term.replace(" ", "+")
+    filename = "youtube_search_results_" + formatted_search_term + ".txt"
+
     # Determine the desktop path
     desktop_path = os.path.join(os.path.expanduser("~"), 'Desktop')
-    file_path = os.path.join(desktop_path, 'youtube_search_results.txt')
+    file_path = os.path.join(desktop_path, filename)
     
     # Write the results to a .txt file on the desktop
     with open(file_path, 'w') as file:
@@ -176,7 +228,6 @@ def scrape_youtube_2(search_term, max_results=20):
 
 
     base_url = "https://www.youtube.com/results?search_query="
-    formatted_search_term = search_term.replace(" ", "+")
     url = base_url + formatted_search_term
 
     return videos, url
@@ -200,6 +251,9 @@ def main():
         url = input("Enter the URL: ")
     elif(choice == "G2"):
         url = input("Enter the URL: ")
+    elif(choice == "Article"):
+        url = input("Enter the URL: ")
+        article = get_article(url)
     elif(choice == "Others"):
         url = input("Enter the URL: ")
         

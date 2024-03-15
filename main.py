@@ -3,6 +3,7 @@ from googleapiclient.discovery import build
 from dotenv import load_dotenv
 import json
 import os
+from selenium import webdriver
 
 from readability import Document
 import requests
@@ -18,6 +19,17 @@ youtube = build('youtube', 'v3', developerKey=YOUTUBE_API_KEY)
 
 # Initialize the ApifyClient with your API token
 client = ApifyClient(APIFY_API_KEY)
+
+def get_screenshot_3(htmllocation): # INCOMPLETE
+    options = webdriver.ChromeOptions()
+    options.add_argument('--headless')
+    driver = webdriver.Chrome(options=options)
+
+    # htmllocation = 'file:///' + htmllocation.lstrip('/')
+
+    driver.get(htmllocation)
+    driver.save_screenshot('screenshot.png')
+    driver.quit()
 
 def get_user_choice():
     options = ["Google Search", "YouTube", "Webpage", "Article", "G2", "Others"]
@@ -84,6 +96,8 @@ def get_screenshot_2(url):
     return screenshotUrl
 
 def get_screenshot(url): # Use ApiFY screenshot actor
+    screenshotUrl = ""
+
     # Prepare the Actor input
     run_input = {
         "urls": [{ "url": url }],
@@ -187,7 +201,7 @@ def scrape_youtube(searchTerm):
 '''
 
 # Search for videos on YouTube
-def scrape_youtube_2(search_term, max_results=20):
+def scrape_youtube(search_term, max_results=20):
     
     request = youtube.search().list(
         q=search_term,
@@ -245,12 +259,11 @@ def main():
     if(choice == "Google Search"):
         results, url = scrape_googlesearch(searchTerm)
     elif(choice == "YouTube"):
-        videos, url = scrape_youtube_2(searchTerm)
-        print(videos)
+        videos, url = scrape_youtube(searchTerm)
     elif(choice == "Webpage"):
         url = input("Enter the URL: ")
     elif(choice == "G2"):
-        url = input("Enter the URL: ")
+        htmlfile = input("Enter the HTML file location:")
     elif(choice == "Article"):
         url = input("Enter the URL: ")
         article = get_article(url)
@@ -258,7 +271,10 @@ def main():
         url = input("Enter the URL: ")
         
     print("\nGetting screenshot...")
-    screenShotURL = get_screenshot(url)
-    print(screenShotURL)
+    if(choice == "G2"):
+        get_screenshot_3(htmlfile)
+    else:
+        screenShotUrl = get_screenshot(url)
+        print(screenShotUrl)
 
 main()
